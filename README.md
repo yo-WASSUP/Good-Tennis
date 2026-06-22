@@ -1,4 +1,4 @@
-﻿# Good-Tennis: AI 网球比赛分析助手
+﻿# Good-Tennis: AI 网球鹰眼系统 🎾
 
 <div align="center">
 
@@ -10,20 +10,20 @@
 
 </div>
 
-### 视频分析结果
+### 🎬 视频分析结果
 
 | RTMPose 姿态检测 | YOLO26s 人体检测 |
 | --- | --- |
 | ![RTMPose 姿态检测演示](assets/rtmpose_detect_demo.gif) | ![YOLO26s 人体检测演示](assets/yolo26s_detect_demo.gif) |
 网球比赛远景里球员通常较小，目标检测一般比姿态估计更稳定。
 
-## 更新日志
+## 📝 更新日志
 
 - **2026-06-22**：整理开源 README，增加网球弹跳点检测。
 - **当前版本**：支持球员检测、网球检测、球场坐标映射、轨迹统计、回合检测、小地图、热力图/散点图和带标注视频输出。
 - **实验功能**：自动球场外角点检测和网球弹跳点检测仍在迭代中，适合研究和二次开发使用。
 
-## 开发计划
+## 🗺️ 开发计划
 
 - [x] 网球比赛视频逐帧分析
 - [x] YOLO 人体检测和多姿态模型支持
@@ -41,7 +41,7 @@
 
 ---
 
-## 功能
+## ✨ 功能
 
 - **球员检测** - 默认使用 YOLO 人体框检测，也可切换到 RTMPose、RTMO 或 Ultralytics YOLO Pose 姿态估计。
 - **网球检测** - 使用 YOLO 模型检测网球位置；原始检测写入数据文件，最终视频绘制后处理过滤/插值后的干净轨迹。
@@ -56,20 +56,20 @@
 - **本地运行** - 视频、模型和分析结果都保存在本地。
 
 
-### 球场与位置可视化
+### 📊 球场与位置可视化
 
 | 自动球场检测 | 球员位置热力图 | 球员位置散点图 |
 | --- | --- | --- |
 | ![自动球场检测](assets/auto.png) | ![球员位置热力图](assets/demo_heatmap.png) | ![球员位置散点图](assets/demo_scatter.png) |
 
-## 系统要求
+## 🧩 系统要求
 
 - Python 3.8+
 - FFmpeg，并已加入系统 `PATH`
 - OpenCV / PyTorch / Ultralytics / RTMLib / ONNX Runtime
 - 推荐 NVIDIA GPU；CPU 可以运行，但视频分析速度会明显变慢
 
-## 安装指南
+## ⚙️ 安装指南
 
 ### Windows
 
@@ -127,7 +127,7 @@ CUDAExecutionProvider
 pip install --force-reinstall -r requirements.txt
 ```
 
-## 模型准备
+## 🧠 模型准备
 
 首次运行前，请到项目的 GitHub Release 页面下载权重文件：
 
@@ -145,7 +145,7 @@ https://github.com/yo-WASSUP/Good-Tennis/releases/latest
 
 本地 RTMPose / RTMO 文件不存在时，`rtmlib` 可能会尝试在线下载到用户缓存目录。
 
-## 使用指南
+## 🚀 使用指南
 
 ### 第一次运行流程
 
@@ -224,7 +224,7 @@ python main.py --video-path videos/demo.mp4 --template-path templates/demo.png -
 --language {zh,en}              选择界面语言
 ```
 
-## 输出结果
+## 📦 输出结果
 
 默认输出到 `outputs/<视频文件名>/`：
 
@@ -238,7 +238,7 @@ python main.py --video-path videos/demo.mp4 --template-path templates/demo.png -
 - `position_visualizations/heatmaps/`：球员位置热力图。
 - `position_visualizations/scatter_plots/`：球员位置散点图。
 
-## 项目结构
+## 🗂️ 项目结构
 
 ```text
 main.py                    # 命令行入口和参数解析
@@ -253,7 +253,7 @@ tennis_analysis/
 └── visualization/         # 视频叠加层、统计图和位置图
 ```
 
-## 致谢
+## 🙏 致谢
 
 感谢 RTMPose、RTMO 和 OpenMMLab 生态提供的姿态估计算法基础，以及 [Tau-J/rtmlib](https://github.com/Tau-J/rtmlib) 提供的轻量姿态估计运行库。
 感谢 [Ultralytics](https://github.com/ultralytics/ultralytics) 提供的 YOLO 目标检测算法与工具链。

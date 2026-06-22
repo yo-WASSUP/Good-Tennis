@@ -1,4 +1,4 @@
-# Good-Tennis: AI Tennis Match Analysis Assistant
+# Good-Tennis: AI Tennis Match Analysis Assistant 🎾
 
 <div align="center">
 
@@ -10,19 +10,19 @@
 
 </div>
 
-### Video Analysis Results
+### 🎬 Video Analysis Results
 
 | RTMPose Pose Detection | YOLO26s Person Detection |
 | --- | --- |
 | ![RTMPose pose detection demo](assets/en_rtmpose_detect_demo.gif) | ![YOLO26s person detection demo](assets/en_yolo26s_detect_demo.gif) |
 
-## Changelog
+## 📝 Changelog
 
 - **2026-06-22**: Organized the open-source README and added tennis ball bounce detection.
 - **Current version**: Supports player detection, tennis ball detection, court coordinate mapping, trajectory statistics, rally detection, mini-map overlays, heatmaps/scatter plots, and annotated video output.
 - **Experimental features**: Automatic outer court corner detection and tennis ball bounce detection are still being improved, and are suitable for research and further development.
 
-## Roadmap
+## 🗺️ Roadmap
 
 - [x] Frame-by-frame tennis match video analysis
 - [x] YOLO person detection and multiple pose model options
@@ -40,7 +40,7 @@
 
 ---
 
-## Features
+## ✨ Features
 
 - **Player detection** - Uses YOLO person bounding boxes by default, and can also switch to RTMPose, RTMO, or Ultralytics YOLO Pose for pose estimation.
 - **Tennis ball detection** - Uses a YOLO model to detect tennis ball positions; raw detections are written to data files, while the final video draws the cleaned trajectory after post-processing, filtering, and interpolation.
@@ -54,20 +54,20 @@
 - **Chinese / English display** - Visualization text can be switched with `--language zh/en`.
 - **Local processing** - Videos, models, and analysis results are all stored locally.
 
-### Court and Position Visualizations
+### 📊 Court and Position Visualizations
 
 | Automatic Court Detection | Player Position Heatmap | Player Position Scatter Plot |
 | --- | --- | --- |
 | ![Automatic court detection](assets/auto.png) | ![Player position heatmap](assets/en_demo_heatmap.png) | ![Player position scatter plot](assets/en_demo_scatter.png) |
 
-## Requirements
+## 🧩 Requirements
 
 - Python 3.8+
 - FFmpeg added to the system `PATH`
 - OpenCV / PyTorch / Ultralytics / RTMLib / ONNX Runtime
 - NVIDIA GPU recommended; CPU execution works, but video analysis will be significantly slower
 
-## Installation
+## ⚙️ Installation
 
 ### Windows
 
@@ -125,7 +125,7 @@ Switch back to CPU builds:
 pip install --force-reinstall -r requirements.txt
 ```
 
-## Model Weights
+## 🧠 Model Weights
 
 Before the first run, download the model weights from the project's GitHub Release page:
 
@@ -165,7 +165,7 @@ weights/rtmo-s_8xb32-600e_body7-640x640-dac2bf74_20231211.onnx
 
 If local RTMPose / RTMO files are missing, `rtmlib` may try to download them into the user cache directory.
 
-## Usage
+## 🚀 Usage
 
 ### First Run
 
@@ -244,7 +244,7 @@ The program uses the court template image to determine whether the current frame
 --language {zh,en}              Visualization language
 ```
 
-## Outputs
+## 📦 Outputs
 
 Default output directory: `outputs/<video_name>/`
 
@@ -258,7 +258,7 @@ Default output directory: `outputs/<video_name>/`
 - `position_visualizations/heatmaps/`: Player position heatmaps.
 - `position_visualizations/scatter_plots/`: Player position scatter plots.
 
-## Project Structure
+## 🗂️ Project Structure
 
 ```text
 main.py                    # CLI entry and argument parsing
@@ -273,7 +273,7 @@ tennis_analysis/
 └── visualization/         # Video overlays, statistics charts, and position plots
 ```
 
-## Acknowledgements
+## 🙏 Acknowledgements
 
 Thanks to RTMPose, RTMO, and the OpenMMLab ecosystem for the pose estimation algorithm foundation, and to [Tau-J/rtmlib](https://github.com/Tau-J/rtmlib) for the lightweight pose estimation runtime.
 Thanks to [Ultralytics](https://github.com/ultralytics/ultralytics) for the YOLO object detection algorithm and toolchain.
