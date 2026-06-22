@@ -1,0 +1,32 @@
+﻿# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Local inputs and generated outputs
+datasets/
+tools/
+outputs/
+datasets/
+*.log
+
+# Model weights are intentionally not published
+weights/*
+!weights/.gitkeep
+!weights/README.md
+*.pt
+*.pth
+*.onnx
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
