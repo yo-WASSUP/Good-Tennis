@@ -1,8 +1,10 @@
 ﻿# Good-Tennis: AI 网球鹰眼系统 🎾
 
 <div align="center">
-
+[![GitHub stars](https://img.shields.io/github/stars/yo-WASSUP/Good-Tennis?style=social)](https://github.com/yo-WASSUP/Good-Tennis/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/yo-WASSUP/Good-Tennis?style=social)](https://github.com/yo-WASSUP/Good-Tennis/network/members)
 [![GitHub license](https://img.shields.io/github/license/yo-WASSUP/Good-Tennis)](https://github.com/yo-WASSUP/Good-Tennis/blob/main/LICENSE)
+[![RedNote](https://img.shields.io/badge/RedNote-ff2442)](https://www.xiaohongshu.com/explore/6a391e2b000000000f01581b?xsec_token=ABnkAYwLXp33yPqesFN0qD6et7zwd6U5Mrak-XpA5tOXs=&xsec_source=pc_user)
 
 **基于计算机视觉的网球比赛视频分析工具**
 
@@ -15,6 +17,7 @@
 | RTMPose 姿态检测 | YOLO26s 人体检测 |
 | --- | --- |
 | ![RTMPose 姿态检测演示](assets/rtmpose_detect_demo.gif) | ![YOLO26s 人体检测演示](assets/yolo26s_detect_demo.gif) |
+
 网球比赛远景里球员通常较小，目标检测一般比姿态估计更稳定。
 
 ## 📝 更新日志
@@ -256,8 +259,11 @@ tennis_analysis/
 ## 🙏 致谢
 
 感谢 RTMPose、RTMO 和 OpenMMLab 生态提供的姿态估计算法基础，以及 [Tau-J/rtmlib](https://github.com/Tau-J/rtmlib) 提供的轻量姿态估计运行库。
+
 感谢 [Ultralytics](https://github.com/ultralytics/ultralytics) 提供的 YOLO 目标检测算法与工具链。
+
 感谢 [yastrebksv/TrackNet](https://github.com/yastrebksv/TrackNet) 项目整理并公开网球数据集，为本项目的网球检测与轨迹分析提供了重要参考。
+
 
 ## 许可证
 
