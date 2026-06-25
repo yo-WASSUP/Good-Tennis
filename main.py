@@ -23,6 +23,7 @@ def main():
     parser.add_argument('--tennis-ball-trajectory', choices=['true', 'false'], default='true', help='是否显示网球轨迹，默认 true')
     parser.add_argument('--bounce-detection', choices=['true', 'false'], default='true', help='是否检测并标注网球弹跳点，默认 true')
     parser.add_argument('--bounce-classifier', default='', type=str, help='可选弹跳检测分类器 pkl 路径；不传时使用规则后处理')
+    parser.add_argument('--ball-speed', choices=['true', 'false'], default='true', help='是否测量并显示球速（km/h），默认 true')
     parser.add_argument('--mini-map', choices=['true', 'false'], default='true', help='是否显示球场小地图，默认 true')
     parser.add_argument('--player-stats', choices=['true', 'false'], default='true', help='是否显示球员统计信息，默认 true')
     parser.add_argument('--save-images', action='store_true', default=False, help='保存处理后的图像')
@@ -62,7 +63,8 @@ def main():
         court_detection=args.court_detection,
         show_bounce_detection=args.bounce_detection == 'true',
         bounce_classifier_path=args.bounce_classifier,
-        show_mini_map=args.mini_map == 'true'
+        show_mini_map=args.mini_map == 'true',
+        show_ball_speed=args.ball_speed == 'true'
     )
 
     system.keep_audio = args.audio == 'true'

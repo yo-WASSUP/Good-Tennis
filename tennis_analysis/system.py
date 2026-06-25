@@ -12,7 +12,7 @@ def load_runtime_dependencies():
     global CourtLineAutoDetector, CourtTrajectoryVisualizer, TennisBallTracker
     global BounceDetector, MiniMapVisualizer
     global PlayerPoseVisualizer, StatsVisualizer, RTMPoseProcessor, YOLOPoseProcessor, YOLOPersonDetector, vap
-    global JsonlDetectionWriter, write_json, SCHEMA_VERSION
+    global JsonlDetectionWriter, write_json, SCHEMA_VERSION, BallSpeedAnalyzer, BallSpeedVisualizer
 
     yolo_config_dir = os.path.join(tempfile.gettempdir(), "good-tennis-ultralytics")
     os.makedirs(yolo_config_dir, exist_ok=True)
@@ -27,8 +27,10 @@ def load_runtime_dependencies():
         from .court.auto_detector import CourtLineAutoDetector as _CourtLineAutoDetector
         from .tracking.player import PlayerTracker as _PlayerTracker
         from .analysis.bounce import BounceDetector as _BounceDetector
+        from .analysis.ball_speed import BallSpeedAnalyzer as _BallSpeedAnalyzer
         from .visualization.court_trajectory import CourtTrajectoryVisualizer as _CourtTrajectoryVisualizer
         from .visualization.minimap import MiniMapVisualizer as _MiniMapVisualizer
+        from .visualization.ball_speed import BallSpeedVisualizer as _BallSpeedVisualizer
         from .detection.tennis_ball import TennisBallTracker as _TennisBallTracker
         from .visualization.player_pose import PlayerPoseVisualizer as _PlayerPoseVisualizer
         from .visualization.stats import StatsVisualizer as _StatsVisualizer
@@ -54,8 +56,10 @@ def load_runtime_dependencies():
     CourtLineAutoDetector = _CourtLineAutoDetector
     PlayerTracker = _PlayerTracker
     BounceDetector = _BounceDetector
+    BallSpeedAnalyzer = _BallSpeedAnalyzer
     CourtTrajectoryVisualizer = _CourtTrajectoryVisualizer
     MiniMapVisualizer = _MiniMapVisualizer
+    BallSpeedVisualizer = _BallSpeedVisualizer
     TennisBallTracker = _TennisBallTracker
     PlayerPoseVisualizer = _PlayerPoseVisualizer
     StatsVisualizer = _StatsVisualizer
@@ -78,7 +82,7 @@ class TennisAnalysisSystem:
                  yolo_pose_model='weights/yolo11s-pose.pt', player_detector='pose',
                  person_model='weights/yolo26s.pt', show_pose_roi=True,
                  court_detection='auto-fallback', show_bounce_detection=True,
-                 bounce_classifier_path='', show_mini_map=True):
+                 bounce_classifier_path='', show_mini_map=True, show_ball_speed=True):
         self.video_path = video_path
         self.show_display = show_display
         self.language = language
@@ -100,6 +104,7 @@ class TennisAnalysisSystem:
         self.show_tennis_ball_trajectory = show_tennis_ball_trajectory
         self.show_bounce_detection = show_bounce_detection
         self.show_mini_map = show_mini_map
+        self.show_ball_speed = show_ball_speed
         self.show_player_stats = show_player_stats
         self.show_performance_stats = show_performance_stats
         self.save_images = save_images  
@@ -141,6 +146,7 @@ class TennisAnalysisSystem:
         self.detections_path = os.path.join(self.save_dir, "detections.jsonl")
         self.bounce_events_path = os.path.join(self.save_dir, "bounce_events.json")
         self.cleaned_ball_trajectory_path = os.path.join(self.save_dir, "cleaned_ball_trajectory.json")
+        self.ball_speed_path = os.path.join(self.save_dir, "ball_speed.json")
         self.output_video_path = os.path.join(self.save_dir, f"detect_{self.video_name}.mp4")
         self.detection_writer = None
         
@@ -187,6 +193,8 @@ class TennisAnalysisSystem:
         self.frame_height = 0
         self.bounce_detector = None
         self.court_detection_result = None
+        self.ball_speed_analyzer = None
+        self.ball_speed_visualizer = None
     def process_video(self):
         """Process the input video."""
         self.start_time = time.time()
@@ -280,6 +288,7 @@ class TennisAnalysisSystem:
                 "bounce_method": "rule_lag20_postprocess" if not self.bounce_classifier_path else "clf_lag20_postprocess",
                 "bounce_classifier": self.bounce_classifier_path,
                 "mini_map": self.show_mini_map,
+                "ball_speed": self.show_ball_speed,
             },
             "court": {
                 "template_path": template_path,
@@ -298,6 +307,7 @@ class TennisAnalysisSystem:
                 "detections": self.detections_path,
                 "bounce_events": self.bounce_events_path,
                 "cleaned_ball_trajectory": self.cleaned_ball_trajectory_path,
+                "ball_speed": self.ball_speed_path,
             },
         }
         write_json(self.metadata_path, metadata)
@@ -657,8 +667,8 @@ class TennisAnalysisSystem:
 
         cap.release()
 
-        if self.show_bounce_detection and self.bounce_detector is not None:
-            self._finalize_bounce_detection()
+        if self.bounce_detector is not None and (self.show_bounce_detection or self.show_ball_speed):
+            self._finalize_ball_analysis()
 
         if self.show_display:
             cv2.destroyAllWindows()
@@ -676,17 +686,31 @@ class TennisAnalysisSystem:
                 output_path=self.output_video_path
             )
 
-    def _finalize_bounce_detection(self):
+    def _finalize_ball_analysis(self):
+        """Post-process the ball trajectory: bounces and/or ball speed.
+
+        Runs when bounce detection or ball speed measurement is enabled. Both
+        share the cleaned, interpolated trajectory produced by the bounce
+        detector, and all overlays are drawn in a single video pass.
+        """
         if not os.path.exists(self.detections_path):
             return
 
+        detect_bounces = self.show_bounce_detection
+        detect_speed = self.show_ball_speed
+
         events = self.bounce_detector.process_detections(
             self.detections_path,
-            output_path=self.bounce_events_path,
+            output_path=self.bounce_events_path if detect_bounces else None,
             trajectory_output_path=self.cleaned_ball_trajectory_path,
-            rewrite_detections=True,
+            rewrite_detections=detect_bounces,
         )
-        print(f"弹跳后处理完成: {len(events)} 个候选点，结果={self.bounce_events_path}")
+        if detect_bounces:
+            print(f"弹跳后处理完成: {len(events)} 个候选点，结果={self.bounce_events_path}")
+
+        if detect_speed:
+            self._finalize_ball_speed(events)
+
         if not os.path.exists(self.temp_output_video_path):
             return
 
@@ -696,11 +720,36 @@ class TennisAnalysisSystem:
             annotated_path,
             events,
             trajectory_points=self.bounce_detector.processed_points,
-            draw_minimap_bounces=self.show_mini_map,
+            draw_minimap_bounces=self.show_mini_map and detect_bounces,
             draw_processed_trajectory=self.show_tennis_ball_trajectory,
+            draw_bounce_events=detect_bounces,
+            ball_speed_visualizer=self.ball_speed_visualizer,
         )
         if os.path.exists(annotated_path):
             os.replace(annotated_path, self.temp_output_video_path)
+
+    def _finalize_ball_speed(self, bounce_events):
+        """Compute ball speed from the cleaned trajectory and build the overlay."""
+        points = self.bounce_detector.processed_points
+        self.ball_speed_analyzer = BallSpeedAnalyzer(fps=self.fps)
+        result = self.ball_speed_analyzer.analyze(points, bounce_events)
+        write_json(self.ball_speed_path, result)
+
+        summary = result.get("summary", {})
+        shots = result.get("shots", [])
+        print(
+            f"球速测速完成: {summary.get('shot_count', 0)} 次击球，"
+            f"最大球速 {summary.get('max_speed_kmh', 0):.1f} km/h，"
+            f"平均击球速度 {summary.get('avg_shot_speed_kmh', 0):.1f} km/h，结果={self.ball_speed_path}"
+        )
+
+        self.ball_speed_visualizer = BallSpeedVisualizer(
+            shots=shots,
+            speed_by_frame=result.get("speed_by_frame", {}),
+            frame_width=self.frame_width,
+            frame_height=self.frame_height,
+            language=self.language,
+        )
 
     def analyze_tennis_ball(self, roi_corners, corners):
         """Hit-point analysis is currently disabled."""
