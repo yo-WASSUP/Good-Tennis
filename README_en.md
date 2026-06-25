@@ -18,6 +18,7 @@
 
 ## 📝 Changelog
 
+- **2026-06-25**: Added tennis ball speed measurement. Each shot is segmented and its peak speed (km/h) is estimated, written to `ball_speed.json`, and overlaid on the video as a speed panel.
 - **2026-06-22**: Organized the open-source README and added tennis ball bounce detection.
 - **Current version**: Supports player detection, tennis ball detection, court coordinate mapping, trajectory statistics, rally detection, mini-map overlays, heatmaps/scatter plots, and annotated video output.
 - **Experimental features**: Automatic outer court corner detection and tennis ball bounce detection are still being improved, and are suitable for research and further development.
@@ -30,6 +31,7 @@
 - [x] Manual/automatic court annotation and court coordinate mapping
 - [x] Player movement trajectories, speed, distance, and rally statistics
 - [x] Tennis ball trajectory and bounce point annotation
+- [x] Tennis ball speed measurement (peak speed per shot, km/h)
 - [x] Standard tennis court mini-map overlay
 - [x] Chinese / English visualization text
 - [x] Heatmaps, scatter plots, and detection data export
@@ -49,6 +51,7 @@
 - **Player position tracking** - Records player court coordinates, movement trajectories, speed, and distance.
 - **Rally detection** - Automatically detects rally start/end from consecutive court-view frames, and records rally IDs in both the video overlay and detection data.
 - **Bounce point detection** - After video processing, the full tennis ball trajectory is cleaned, interpolated, and scored by rules by default; the cleaned ball trajectory and bounce points are drawn on the main frame and mini-map.
+- **Ball speed measurement** - Using the cleaned trajectory, shots are segmented by bounce points and rally gaps, and each shot's peak speed (km/h) is estimated from court-plane coordinates (meters). A speed panel is overlaid on the video and results are written to `ball_speed.json`. A single camera only yields the 2D court-plane projection, so the measured speed underestimates the true 3D ball speed; flat drives are more accurate than high lobs.
 - **Mini-map overlay** - Displays a standard tennis court mini-map in the output video, with player, ball, and bounce point positions.
 - **Position charts** - Automatically generates player position heatmaps and scatter plots.
 - **Chinese / English display** - Visualization text can be switched with `--language zh/en`.
@@ -235,6 +238,7 @@ The program uses the court template image to determine whether the current frame
 --court-trajectory true|false   Show court trajectory overlay, default true
 --tennis-ball-trajectory true|false Show tennis ball trajectory, default true
 --bounce-detection true|false   Detect and annotate tennis ball bounce points, default true
+--ball-speed true|false         Measure and display ball speed (km/h), default true
 --mini-map true|false           Show court mini-map, default true
 --player-stats true|false       Show player statistics, default true
 --save-images                   Save processed frames
@@ -252,6 +256,7 @@ Default output directory: `outputs/<video_name>/`
 - `detections.jsonl`: Frame-by-frame detection records, including rally ID, players, hands, court coordinates, speed, tennis ball coordinates, and post-processed bounce events.
 - `bounce_events.json`: Bounce point list produced by full-trajectory post-processing, including frame index, image coordinates, confidence, and diagnostics.
 - `cleaned_ball_trajectory.json`: Ball trajectory after filtering and short-gap interpolation; the final video uses this trajectory for drawing.
+- `ball_speed.json`: Ball speed measurement results, including per-shot peak/average speed (km/h), shot frame, court coordinates, and match-level max/average shot speed.
 - `detect_<video_name>.mp4`: Output video with skeletons, trajectories, statistics, mini-map, and rally ID overlays.
 - `court_annotations.txt`: Cached court annotation coordinates.
 - `auto_court_preview.png`: Automatic court detection preview image, generated when automatic candidates are available.

@@ -219,8 +219,10 @@ class BounceDetector:
         trajectory_length=30,
         draw_minimap_bounces=True,
         draw_processed_trajectory=True,
+        draw_bounce_events=True,
+        ball_speed_visualizer=None,
     ):
-        if not events and not trajectory_points:
+        if not events and not trajectory_points and ball_speed_visualizer is None:
             return False
 
         events = sorted(events, key=lambda event: int(event["frame"]))
@@ -243,20 +245,25 @@ class BounceDetector:
             if not ret:
                 break
             frame_index += 1
-            active_events = [
-                event for event in events
-                if 0 <= frame_index - int(event["frame"]) <= display_frames
-            ]
+            active_events = []
+            if draw_bounce_events:
+                active_events = [
+                    event for event in events
+                    if 0 <= frame_index - int(event["frame"]) <= display_frames
+                ]
             if draw_processed_trajectory:
                 self.draw_processed_trajectory(frame, frame_index, trajectory_by_frame, trajectory_length=trajectory_length)
-            for event in active_events:
-                self.draw_event(frame, event, age_frames=frame_index - int(event["frame"]), display_frames=display_frames)
-            if minimap is not None and active_events:
+            if draw_bounce_events:
+                for event in active_events:
+                    self.draw_event(frame, event, age_frames=frame_index - int(event["frame"]), display_frames=display_frames)
+            if minimap is not None and draw_bounce_events and active_events:
                 minimap.draw_bounce_events(frame, active_events)
             if minimap is not None and draw_processed_trajectory:
                 current_point = trajectory_by_frame.get(frame_index)
                 current_court = current_point.court if current_point is not None else None
                 minimap.draw_processed_ball(frame, current_court)
+            if ball_speed_visualizer is not None:
+                ball_speed_visualizer.draw(frame, frame_index)
             writer.write(frame)
 
         video.release()
