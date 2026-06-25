@@ -44,6 +44,14 @@ class BallSpeedAnalyzer:
 
         ``trajectory_points`` may be :class:`TrajectoryPoint` objects or dicts
         exposing ``frame`` and ``court`` (``[x_meters, y_meters]`` or ``None``).
+
+        The cleaned trajectory has one point per processed court frame, in
+        order, so each point's 1-based position in the list equals its index in
+        the annotated output video (non-court frames are skipped before the
+        video is written). Shot ``*_output_frame`` fields use that output-video
+        index so the overlay can be aligned to the annotated video; ``*_frame``
+        fields keep the original input frame number for correlation with
+        ``detections.jsonl``.
         """
         points = self._normalize_points(trajectory_points)
         segments = self._segment(points, bounce_events or [])
@@ -67,6 +75,15 @@ class BallSpeedAnalyzer:
                 "underestimates true 3D ball speed because the vertical component "
                 "is not captured; flat drives are more accurate than high lobs."
             ),
+            "frame_keys": {
+                "frame": "Original input video frame index (matches detections.jsonl 'frame').",
+                "output_frame": (
+                    "Annotated output video frame index. The annotated video skips "
+                    "non-court frames, so this is the compacted court-frame position "
+                    "(matches detections.jsonl 'detect_frame') and is what the on-video "
+                    "speed overlay is aligned to."
+                ),
+            },
             "summary": summary,
             "shots": shots,
             "speed_by_frame": speed_by_frame,
@@ -104,10 +121,13 @@ class BallSpeedAnalyzer:
         )
         bounce_set = set(bounce_frames)
 
+        # Each segment records its 0-based start index within ``points`` so that
+        # output-frame indices stay correct even when bounce points are dropped.
         segments = []
         current = []
+        current_start = 0
         prev_frame = None
-        for point in points:
+        for global_index, point in enumerate(points):
             frame = point["frame"]
             is_bounce_point = frame in bounce_set
             boundary = False
@@ -118,24 +138,25 @@ class BallSpeedAnalyzer:
                     boundary = True
             if is_bounce_point:
                 # The bounce frame is a direction discontinuity; end the current
-                # flight and drop this point so it pollutes neither side.
+                # flight and drop this point so it pollutes neither side's speed.
                 if current:
-                    segments.append(current)
+                    segments.append({"points": current, "start_index": current_start})
                     current = []
                 prev_frame = frame
                 continue
             if boundary and current:
-                segments.append(current)
+                segments.append({"points": current, "start_index": current_start})
                 current = []
+            if not current:
+                current_start = global_index
             current.append(point)
             prev_frame = frame
         if current:
-            segments.append(current)
+            segments.append({"points": current, "start_index": current_start})
 
-        enriched = []
         for segment in segments:
-            enriched.append({"points": segment, "speeds": self._segment_speeds(segment)})
-        return enriched
+            segment["speeds"] = self._segment_speeds(segment["points"])
+        return segments
 
     @staticmethod
     def _is_int_frame(value):
@@ -200,25 +221,26 @@ class BallSpeedAnalyzer:
         shots = []
         shot_index = 0
         rally_index = 0
-        point_index = 0
-        for seg_number, segment in enumerate(segments):
+        for segment in segments:
             seg_points = segment["points"]
             speeds = segment["speeds"]
+            start_index = segment["start_index"]
             if len(seg_points) < self.min_shot_frames:
-                point_index += len(seg_points)
                 continue
             valid = [(i, s) for i, s in enumerate(speeds) if s is not None]
             if not valid:
-                point_index += len(seg_points)
                 continue
             peak_local, peak_speed = max(valid, key=lambda item: item[1])
             peak_point = seg_points[peak_local]
             avg_speed = float(np.mean([s for _, s in valid]))
-            # A segment gap (rally break) starts a new rally; bounces split shots.
-            first_frame = seg_points[0]["frame"]
-            prev_frame = points[point_index - 1]["frame"] if point_index > 0 else None
-            if prev_frame is not None and first_frame - prev_frame > self.max_segment_gap_frames:
-                rally_index += 1
+
+            # A large frame gap before this segment marks a new rally; bounces
+            # only split shots within a rally, so they do not start a new rally.
+            if start_index > 0:
+                prev_frame = points[start_index - 1]["frame"]
+                if seg_points[0]["frame"] - prev_frame > self.max_segment_gap_frames:
+                    rally_index += 1
+
             shots.append(
                 {
                     "shot_index": shot_index,
@@ -226,6 +248,9 @@ class BallSpeedAnalyzer:
                     "start_frame": int(seg_points[0]["frame"]),
                     "end_frame": int(seg_points[-1]["frame"]),
                     "peak_frame": int(peak_point["frame"]),
+                    "start_output_frame": start_index + 1,
+                    "end_output_frame": start_index + len(seg_points),
+                    "peak_output_frame": start_index + peak_local + 1,
                     "peak_speed_kmh": round(float(peak_speed), 2),
                     "peak_speed_ms": round(float(peak_speed) / MS_TO_KMH, 2),
                     "avg_speed_kmh": round(float(avg_speed), 2),
@@ -237,7 +262,6 @@ class BallSpeedAnalyzer:
                 }
             )
             shot_index += 1
-            point_index += len(seg_points)
         return shots
 
     def _summarize(self, shots):

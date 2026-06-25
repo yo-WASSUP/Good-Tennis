@@ -26,7 +26,7 @@ class BallSpeedVisualizer:
         fade_sec=2.0,
         min_alpha=0.45,
     ):
-        self.shots = sorted(shots or [], key=lambda shot: int(shot.get("peak_frame", 0)))
+        self.shots = sorted(shots or [], key=self._peak_output_frame)
         self.speed_by_frame = speed_by_frame or {}
         self.frame_width = int(frame_width)
         self.frame_height = int(frame_height)
@@ -39,7 +39,11 @@ class BallSpeedVisualizer:
 
         self.font_path = self._find_font()
         self._font_cache = {}
-        self._peak_frames = [int(shot.get("peak_frame", 0)) for shot in self.shots]
+        # The overlay is drawn while iterating the annotated output video, whose
+        # frame index is the compacted court-frame index. Shots therefore key
+        # alignment on peak_output_frame (falls back to peak_frame for callers
+        # that only know original frame numbers, e.g. unit tests).
+        self._peak_frames = [self._peak_output_frame(shot) for shot in self.shots]
         self._max_speed = max(
             (float(shot.get("peak_speed_kmh", 0)) for shot in self.shots),
             default=0.0,
@@ -56,7 +60,7 @@ class BallSpeedVisualizer:
         shot = self._active_shot(int(frame_index))
         if shot is None:
             return frame
-        age_frames = int(frame_index) - int(shot.get("peak_frame", 0))
+        age_frames = int(frame_index) - self._peak_output_frame(shot)
         if age_frames < 0:
             return frame
         alpha = self._alpha(age_frames)
@@ -64,6 +68,15 @@ class BallSpeedVisualizer:
             return frame
         self._draw_box(frame, shot, alpha)
         return frame
+
+    @staticmethod
+    def _peak_output_frame(shot):
+        """Output-video frame index of a shot's peak (falls back to peak_frame)."""
+        for key in ("peak_output_frame", "peak_frame"):
+            value = shot.get(key) if isinstance(shot, dict) else None
+            if value is not None:
+                return int(value)
+        return 0
 
     def _active_shot(self, frame_index):
         # Latest shot whose speed has already been "measured" (peak reached).

@@ -94,6 +94,58 @@ def test_rally_gap_splits_rallies():
     print(f"  rally gap splits: rallies={sorted(rallies)}")
 
 
+def test_output_frame_indices_track_compacted_position():
+    # Simulate non-court frames being skipped: original frames 1,2,3 then 10,11,12
+    # (4-9 skipped). The cleaned trajectory has 6 points, so output frames are 1..6
+    # even though original frames are 1,2,3,10,11,12.
+    frames = [1, 2, 3, 10, 11, 12]
+    points = []
+    for i, f in enumerate(frames):
+        court = [2.0 + 27.78 * i / FPS, 11.885]  # constant ~100 km/h
+        points.append({"frame": f, "court": court, "image": [100 + i, 100]})
+    analyzer = BallSpeedAnalyzer(fps=FPS)
+    result = analyzer.analyze(points, bounce_events=[])
+    assert result["summary"]["shot_count"] == 1
+    shot = result["shots"][0]
+    # Original frames keep the gappy input numbering.
+    assert shot["start_frame"] == 1, shot
+    assert shot["end_frame"] == 12, shot
+    # Output frames are the compacted 1-based trajectory position.
+    assert shot["start_output_frame"] == 1, shot
+    assert shot["end_output_frame"] == 6, shot
+    assert 1 <= shot["peak_output_frame"] <= 6, shot
+    print(
+        f"  output-frame indices: start_frame={shot['start_frame']} end_frame={shot['end_frame']} "
+        f"| start_output_frame={shot['start_output_frame']} end_output_frame={shot['end_output_frame']} "
+        f"peak_output_frame={shot['peak_output_frame']}"
+    )
+
+
+def test_visualizer_aligns_to_output_frames():
+    # One shot whose peak is at output frame 4 but original frame 10 (skipped
+    # non-court frames 4-9). The overlay must activate at output frame 4, not 10.
+    from tennis_analysis.visualization.ball_speed import BallSpeedVisualizer
+
+    shot = {
+        "shot_index": 0, "rally": 0,
+        "start_frame": 1, "end_frame": 12, "peak_frame": 10,
+        "start_output_frame": 1, "end_output_frame": 6, "peak_output_frame": 4,
+        "peak_speed_kmh": 150.0, "peak_speed_ms": 41.7, "avg_speed_kmh": 110.0,
+        "peak_court": [5.4, 11.8], "peak_image": [820, 340], "duration_sec": 0.4,
+    }
+    vis = BallSpeedVisualizer(shots=[shot], frame_width=1920, frame_height=1080, language="en")
+
+    def drew(frame_index):
+        frame = np.full((1080, 1920, 3), 40, dtype=np.uint8)
+        vis.draw(frame, frame_index)
+        return int(np.count_nonzero(frame != 40)) > 0
+
+    assert drew(4) is True, "overlay should be active at output frame 4 (peak reached)"
+    assert drew(3) is False, "overlay must NOT be active before the peak output frame"
+    assert drew(6) is True, "overlay should still be visible within hold window after peak"
+    print("  visualizer aligns to output frames: ok")
+
+
 def main():
     tests = [
         test_constant_speed,
@@ -101,6 +153,8 @@ def main():
         test_empty_and_degenerate,
         test_outlier_rejected,
         test_rally_gap_splits_rallies,
+        test_output_frame_indices_track_compacted_position,
+        test_visualizer_aligns_to_output_frames,
     ]
     for test in tests:
         print(f"-> {test.__name__}")
