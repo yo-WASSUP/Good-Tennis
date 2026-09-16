@@ -1,7 +1,5 @@
 ﻿import os
 import tempfile
-from tkinter import filedialog
-import tkinter as tk
 import time
 import argparse
 
@@ -453,6 +451,8 @@ class TennisAnalysisSystem:
         try:
             root = tk.Tk()
             root.withdraw()
+            import tkinter as tk
+            from tkinter import filedialog
             template_path = filedialog.askopenfilename(
                 title="Select court template image",
                 filetypes=[("Image files", "*.png *.jpg *.jpeg *.bmp")]
@@ -552,7 +552,9 @@ class TennisAnalysisSystem:
                     f"confidence={detected['confidence']:.2f}, "
                     f"lines={detected['line_count']}, preview={preview_path}"
                 )
-                if self._confirm_auto_court_detection(template_color, detected):
+                # headless: auto-accept rather than treating skipped confirmation as rejection
+                confirmed = self._confirm_auto_court_detection(template_color, detected) if self.show_display else True
+                if confirmed:
                     self.court_detection_result = {
                         "status": "auto",
                         "accepted": True,
@@ -577,7 +579,8 @@ class TennisAnalysisSystem:
                     f"confidence={candidate['confidence']:.2f}, "
                     f"lines={candidate['line_count']}, preview={preview_path}"
                 )
-                if self._confirm_auto_court_detection(template_color, candidate):
+                confirmed = self._confirm_auto_court_detection(template_color, candidate) if self.show_display else True
+                if confirmed:
                     self.court_detection_result = {
                         "status": "auto_low_confidence_accepted",
                         "accepted": True,

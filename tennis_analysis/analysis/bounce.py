@@ -351,6 +351,8 @@ class BounceDetector:
             [point.image if point.image is not None else [np.nan, np.nan] for point in cleaned],
             dtype=np.float32,
         )
+        if coords.ndim < 2 or coords.size == 0:
+            return cleaned  # too few ball detections to form a 2-D coordinate array
         valid_indices = np.where(~np.isnan(coords[:, 0]) & ~np.isnan(coords[:, 1]))[0]
         if len(valid_indices) < 5:
             return cleaned
