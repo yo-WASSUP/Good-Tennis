@@ -40,7 +40,9 @@ class CourtLineAutoDetector:
             self._set_failure("no_hough_lines")
             return None
 
-        segments = [tuple(line[0]) for line in lines]
+        # HoughLinesP's return shape varies across OpenCV builds ((N,1,4) vs (N,4));
+        # normalise each row to a flat 4-tuple instead of assuming line[0] is the row.
+        segments = [tuple(np.asarray(line).reshape(-1)) for line in lines]
         horizontal, vertical = self._split_segments(segments, width, height)
         if len(horizontal) < 2 or len(vertical) < 2:
             self._set_failure("not_enough_horizontal_or_vertical_lines", line_count=len(segments), horizontal_count=len(horizontal), vertical_count=len(vertical))
