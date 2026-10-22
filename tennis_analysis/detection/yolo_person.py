@@ -2,6 +2,8 @@ import os
 from contextlib import redirect_stderr, redirect_stdout
 from importlib.util import find_spec
 
+from .device import is_coreml_model, select_yolo_device
+
 
 class YOLOPersonDetector:
     """Ultralytics YOLO person detector with optional built-in MOT tracking."""
@@ -17,18 +19,7 @@ class YOLOPersonDetector:
 
         from ultralytics import YOLO
 
-        if device in (None, "auto"):
-            selected = "cpu"
-            try:
-                import torch
-                if torch.cuda.is_available():
-                    selected = 0
-            except Exception:
-                selected = "cpu"
-            self.device = selected
-        else:
-            self.device = device
-        self.half = self.device != "cpu"
+        self.device, self.half = select_yolo_device(device, model_path=self.model_path)
 
         tracker_label = self.tracker_config if self.tracker != "none" else "none"
         print(f"Initializing YOLO person model (model: {self.model_path}, device: {self.device}, tracker: {tracker_label})")
@@ -110,7 +101,7 @@ class YOLOPersonDetector:
             pass
 
     def _warmup_model(self):
-        if self.device == "cpu":
+        if self.device == "cpu" and not is_coreml_model(self.model_path):
             return
         try:
             import logging
@@ -122,7 +113,12 @@ class YOLOPersonDetector:
             dummy = np.zeros((640, 640, 3), dtype=np.uint8)
             try:
                 with open(os.devnull, "w") as devnull, redirect_stdout(devnull), redirect_stderr(devnull):
-                    self.model(dummy, conf=self.conf, device=self.device, classes=[0], half=self.half, verbose=False)
+                    self._run_inference(dummy)
+                    # Initialize tracking callbacks outside the frame loop, then
+                    # discard the dummy frame's tracks and camera-motion state.
+                    if self.tracker != "none":
+                        for tracker in self.model.predictor.trackers:
+                            tracker.reset()
             finally:
                 LOGGER.setLevel(previous_level)
         except Exception:

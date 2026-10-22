@@ -1,4 +1,7 @@
-﻿class YOLOPoseProcessor:
+﻿from .device import is_coreml_model, select_yolo_device
+
+
+class YOLOPoseProcessor:
     """Ultralytics YOLO pose processor with COCO 17 keypoint output."""
 
     def __init__(self, model_path="weights/yolo11s-pose.pt", device="auto", conf=0.25):
@@ -7,18 +10,7 @@
         self.model_path = model_path
         self.conf = conf
         self.inference_name = "YOLO-Pose"
-        if device in (None, "auto"):
-            selected = "cpu"
-            try:
-                import torch
-                if torch.cuda.is_available():
-                    selected = 0
-            except Exception:
-                selected = "cpu"
-            self.device = selected
-        else:
-            self.device = device
-        self.half = self.device != "cpu"
+        self.device, self.half = select_yolo_device(device, model_path=self.model_path)
 
         print(f"Initializing YOLO pose model (model: {self.model_path}, device: {self.device})")
         self.model = YOLO(self.model_path)
@@ -57,7 +49,7 @@
             pass
 
     def _warmup_model(self):
-        if self.device == "cpu":
+        if self.device == "cpu" and not is_coreml_model(self.model_path):
             return
         try:
             import logging

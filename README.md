@@ -105,6 +105,34 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
+### Apple Silicon GPU 加速（macOS）
+
+YOLO 球员检测、YOLO 姿态检测和网球检测会自动按 CUDA → Apple MPS → CPU 的顺序选择可用设备。Apple MPS 使用 FP32 推理；RTMPose / RTMO 的 ONNX 后端不受此设置影响。启动日志会显示所选设备。
+
+可用以下命令检查当前 PyTorch 是否支持 MPS：
+
+```bash
+python -c "import torch; print(torch.backends.mps.is_available())"
+```
+
+### Core ML FP16 与实时预览（Apple Silicon）
+
+在 macOS 上，可将同一份 YOLO 权重转换为 Core ML FP16。Core ML 管理加速器；张量预处理保留在 CPU，避免经过 MPS 再拷回 CPU。使用的 Ultralytics 版本选择 CPU + Neural Engine 计算单元，因此日志中的 `device: cpu` 指宿主张量，不表示模型仅在 CPU 推理。
+
+以下可复现的导出使用 `nms=None`，保留原有 NMS 检测头，避免更换检测头。矩形输入对应自带 720p 示例的常规 640 像素缩放/填充尺寸；其他画幅可重新选择尺寸：
+
+```bash
+python -m pip install coremltools==9.0 ultralytics==8.4.183
+python -c "from ultralytics import YOLO; YOLO('weights/yolo26s.pt').export(format='coreml', half=True, imgsz=(416,640), nms=None); YOLO('weights/tennis-ball.pt').export(format='coreml', half=True, imgsz=(384,640), nms=None)"
+python main.py --video-path videos/demo.mp4 --template-path templates/demo.png --person-model weights/yolo26s.mlpackage --ball-model weights/tennis-ball.mlpackage --language en --bounce-detection false --visualize-positions false --benchmark --cpu-threads 1
+```
+
+`--cpu-threads 1` 限制 PyTorch 的宿主预处理线程，避免小张量操作过度并行；它不限制 Core ML 自身的计算单元。可在目标硬件上比较线程设置，默认不修改线程数。
+
+保持每帧检测网球、每两帧检测球员的默认频率。关闭离线弹跳处理时，主画面显示因果球路，小地图显示当前球位置；这种预览不提供依赖未来帧的后处理弹跳结果。模型首次加载/编译和跟踪器初始化仍可能有延迟尖峰。以上是视频文件预览，并非摄像头输入。
+
+`--benchmark` 在输出目录写入 `performance.json`，记录包含解码、检测/跟踪、绘制、窗口显示（若启用）和临时视频写入的 FPS、P95/P99 延迟及超过输入帧预算的次数。离线弹跳和最终编码耗时单独记录，模型构造与图表生成不包含在帧循环指标内。平均 FPS 高于源视频不保证每一帧都满足延迟预算。
+
 ### GPU 加速（Windows / NVIDIA）
 
 默认依赖使用 CPU 版 PyTorch 和 ONNX Runtime。需要 GPU 加速时，先确认：

@@ -89,7 +89,8 @@ class TennisAnalysisSystem:
                  show_pose_roi=True,
                  court_detection='auto-fallback', show_bounce_detection=True,
                  bounce_classifier_path='', show_mini_map=True,
-                 court_match_width=320):
+                 court_match_width=320, benchmark=False):
+        self.benchmark = benchmark
         self.video_path = video_path
         self.show_display = show_display
         self.language = language
@@ -173,7 +174,7 @@ class TennisAnalysisSystem:
         self.tennis_ball_tracker = TennisBallTracker(
             yolo_ball_model=self.yolo_ball_model,
             trajectory_length=30,
-            show_trajectory=False,
+            show_trajectory=self.show_tennis_ball_trajectory and not self.show_bounce_detection,
             show_performance_stats=self.show_performance_stats
         )
         
@@ -256,14 +257,18 @@ class TennisAnalysisSystem:
         
         frame_count = 0
         detect_frame_count = 0
+        frame_times = []
 
 
         while cap.isOpened():
+            frame_started = time.perf_counter() if self.benchmark else None
             ret, frame = cap.read()
             if not ret:
                 break
             frame_count += 1
             frame, detect_frame_count = self._process_frame(frame, template_gray, corners, roi_corners, frame_count, out, detect_frame_count)
+            if self.benchmark:
+                frame_times.append(time.perf_counter() - frame_started)
 
         self.end_time = time.time()
         processing_time = self.end_time - self.start_time
@@ -273,7 +278,24 @@ class TennisAnalysisSystem:
         print(f"处理耗时: {processing_time:.2f} 秒")
         print(f"处理速度比: {processing_time/video_duration:.2f}x")
         
+        postprocess_started = time.perf_counter()
         self._cleanup(cap)
+        if self.benchmark:
+            from .analysis.performance import summarize_frame_times
+            import torch
+
+            report = summarize_frame_times(frame_times, fps)
+            report["torch_cpu_threads"] = torch.get_num_threads()
+            report["display_enabled"] = self.show_display
+            report["source_frames"] = total_frames
+            report["player_detection_interval"] = self.player_detect_interval
+            report["offline_bounce_processing"] = self.show_bounce_detection
+            report["model_setup_seconds"] = getattr(self, "model_setup_seconds", None)
+            report["analysis_seconds"] = processing_time
+            report["postprocess_seconds"] = time.perf_counter() - postprocess_started
+            report["postprocess_scope"] = "video finalization, offline bounce processing and export; excludes charts"
+            write_json(os.path.join(self.save_dir, "performance.json"), report)
+            print(f"Frame loop: {report['frame_loop_fps']:.2f} FPS, p95={report['latency_ms']['p95']:.2f} ms")
 
     def _write_metadata(self, fps, total_frames, video_duration, template_path, corners, roi_corners, mid_height):
         metadata = {
@@ -418,10 +440,14 @@ class TennisAnalysisSystem:
             frame = self.minimap_visualizer.draw(
                 frame,
                 self.player_tracker.court_history,
-                ball_court_position=None,
+                ball_court_position=ball_court_position if not self.show_bounce_detection else None,
                 bounce_events=[],
             )
         
+
+        # With offline bounce postprocessing disabled, draw the causal trail now.
+        if not self.show_bounce_detection:
+            self.tennis_ball_tracker.handle_visualization(frame)
 
         if frame is not None:
             if self.show_display:

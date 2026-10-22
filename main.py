@@ -1,5 +1,6 @@
 ﻿import argparse
 import os
+import time
 from importlib.util import find_spec
 
 from tennis_analysis.system import TennisAnalysisSystem, load_runtime_dependencies
@@ -42,11 +43,15 @@ def main():
     parser.add_argument('--mini-map', choices=['true', 'false'], default='true', help='是否显示球场小地图，默认 true')
     parser.add_argument('--player-stats', choices=['true', 'false'], default='true', help='是否显示球员统计信息，默认 true')
     parser.add_argument('--save-images', action='store_true', default=False, help='保存处理后的图像')
+    parser.add_argument('--benchmark', action='store_true', help='保存逐帧处理速度和延迟统计到 performance.json')
+    parser.add_argument('--cpu-threads', type=int, default=None, help='模型初始化后设置 PyTorch CPU 线程数；Core ML 可测试 1，默认沿用运行库设置')
     parser.add_argument('--performance-stats', action='store_true', default=False, help='显示性能统计信息')
     parser.add_argument('--visualize-positions', choices=['true', 'false'], default='true', help='是否生成球员位置热力图和散点图，默认 true')
     parser.add_argument('--audio', choices=['true', 'false'], default='true', help='是否保留原视频音频，默认 true')
     parser.add_argument('--language', default='en', choices=['zh', 'en'], help='选择界面语言 (zh/en)')
     args = parser.parse_args()
+    if args.cpu_threads is not None and args.cpu_threads < 1:
+        parser.error('--cpu-threads must be at least 1')
     validate_cli_dependencies(args, parser)
 
     load_runtime_dependencies()
@@ -56,6 +61,7 @@ def main():
     else:
         from tennis_analysis.visualization.player_positions_zh import analyze_player_positions
 
+    model_setup_started = time.perf_counter()
     system = TennisAnalysisSystem(
         args.video_path,
         show_display=args.display == 'true',
@@ -81,10 +87,15 @@ def main():
         court_detection=args.court_detection,
         show_bounce_detection=args.bounce_detection == 'true',
         bounce_classifier_path=args.bounce_classifier,
-        show_mini_map=args.mini_map == 'true'
+        show_mini_map=args.mini_map == 'true',
+        benchmark=args.benchmark
     )
 
+    system.model_setup_seconds = time.perf_counter() - model_setup_started
     system.keep_audio = args.audio == 'true'
+    if args.cpu_threads is not None:
+        import torch
+        torch.set_num_threads(args.cpu_threads)
     system.process_video()
 
     if args.visualize_positions == 'true':

@@ -97,6 +97,34 @@ python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
+### Apple Silicon GPU acceleration (macOS)
+
+YOLO person, YOLO pose, and tennis ball detection automatically select CUDA, then Apple MPS, then CPU. MPS uses FP32 inference. This does not change the ONNX backend used by RTMPose / RTMO. Startup logs show the selected device.
+
+Check MPS availability in the current PyTorch installation:
+
+```bash
+python -c "import torch; print(torch.backends.mps.is_available())"
+```
+
+### Core ML FP16 and real-time preview (Apple Silicon)
+
+On macOS, export the same YOLO weights to Core ML FP16. Core ML schedules the accelerator; preprocessing tensors stay on CPU to avoid a round-trip through MPS. The pinned Ultralytics backend selects CPU + Neural Engine compute units, so `device: cpu` describes the host tensors, not CPU-only model execution.
+
+This recipe keeps the original NMS head (`nms=None`). The rectangular shapes match the normal 640-pixel resize/padding of the included 720p demo; choose shapes again for other aspect ratios:
+
+```bash
+python -m pip install coremltools==9.0 ultralytics==8.4.183
+python -c "from ultralytics import YOLO; YOLO('weights/yolo26s.pt').export(format='coreml', half=True, imgsz=(416,640), nms=None); YOLO('weights/tennis-ball.pt').export(format='coreml', half=True, imgsz=(384,640), nms=None)"
+python main.py --video-path videos/demo.mp4 --template-path templates/demo.png --person-model weights/yolo26s.mlpackage --ball-model weights/tennis-ball.mlpackage --language en --bounce-detection false --visualize-positions false --benchmark --cpu-threads 1
+```
+
+`--cpu-threads 1` limits PyTorch host preprocessing threads to reduce small-tensor scheduling overhead; it does not constrain Core ML compute units. Compare settings on your hardware; the default leaves the thread count unchanged.
+
+Ball detection still runs on every frame, with the default player detection every two frames. Disabling offline bounce processing draws a causal ball trail and the current ball position on the mini-map; future-dependent bounce results remain unavailable in this preview. Initial model loading/compilation and tracker startup can still cause latency spikes. This previews a video file, not a camera input.
+
+`--benchmark` writes `performance.json` with frame-loop FPS, P95/P99 latency and input-frame deadline misses. Timing includes decode, detection/tracking, drawing, display (if enabled), and temporary video writes. Offline bounce processing and final encoding are timed separately; model construction and charts are outside the frame-loop metric. Average throughput above the source FPS does not guarantee every frame meets its deadline.
+
 ### GPU Acceleration (Windows / NVIDIA)
 
 The default dependencies use CPU builds of PyTorch and ONNX Runtime. For GPU acceleration, first confirm:
